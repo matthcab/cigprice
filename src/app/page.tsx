@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useSession, signIn } from 'next-auth/react';
 import Link from 'next/link';
 import CitySearch from '@/components/CitySearch';
+import AirportSearch from '@/components/AirportSearch';
 import { BRANDS, FEED_DATA, STATS, formatPrice } from '@/lib/data';
 import { type City, getCityByName } from '@/lib/cities';
+import { type Airport } from '@/lib/airports';
 
 const POPULAR_ROUTES = [
   { from: 'Paris', to: 'Barcelone' },
@@ -23,12 +25,18 @@ export default function HomePage() {
   const [toCity, setToCity] = useState<City | null>(null);
   const [brand, setBrand] = useState('Marlboro');
   const [includeAirports, setIncludeAirports] = useState(false);
+  const [fromAirport, setFromAirport] = useState<Airport | null>(null);
+  const [toAirport, setToAirport] = useState<Airport | null>(null);
   const [upvoted, setUpvoted] = useState<Set<string>>(new Set());
+  const canSearch = Boolean(fromCity || toCity) && (!includeAirports || Boolean((!fromCity || fromAirport) && (!toCity || toAirport)));
 
   const handleSwap = () => {
     const tmp = fromCity;
     setFromCity(toCity);
     setToCity(tmp);
+    const tmpAirport = fromAirport;
+    setFromAirport(toAirport);
+    setToAirport(tmpAirport);
   };
 
   const handleSearch = () => {
@@ -38,6 +46,8 @@ export default function HomePage() {
       to: toCity?.name ?? '',
       brand,
       airports: includeAirports ? '1' : '0',
+      fromAirport: includeAirports ? fromAirport?.code ?? '' : '',
+      toAirport: includeAirports ? toAirport?.code ?? '' : '',
     }).toString();
     router.push(`/resultats?${query}`);
   };
@@ -106,7 +116,10 @@ export default function HomePage() {
           <CitySearch
             key={`from-${fromCity?.id ?? 'empty'}`}
             value={fromCity?.name ?? ''}
-            onChange={(c) => setFromCity(c)}
+            onChange={(c) => {
+              setFromCity(c);
+              setFromAirport(null);
+            }}
             placeholder="Ville de départ"
             label="Départ"
             dot="yellow"
@@ -130,7 +143,10 @@ export default function HomePage() {
           <CitySearch
             key={`to-${toCity?.id ?? 'empty'}`}
             value={toCity?.name ?? ''}
-            onChange={(c) => setToCity(c)}
+            onChange={(c) => {
+              setToCity(c);
+              setToAirport(null);
+            }}
             placeholder="Où tu vas ?"
             label="Destination"
             dot="empty"
@@ -153,7 +169,13 @@ export default function HomePage() {
             <input
               type="checkbox"
               checked={includeAirports}
-              onChange={(event) => setIncludeAirports(event.target.checked)}
+              onChange={(event) => {
+                setIncludeAirports(event.target.checked);
+                if (!event.target.checked) {
+                  setFromAirport(null);
+                  setToAirport(null);
+                }
+              }}
               style={{
                 width: 18,
                 height: 18,
@@ -165,13 +187,36 @@ export default function HomePage() {
             <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>✈</span>
             <span style={{ minWidth: 0 }}>
               <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: includeAirports ? '#F5C842' : '#F0EDE4' }}>
-                Inclure les aéroports du trajet
+                Je passe par des aéroports
               </span>
               <span style={{ display: 'block', fontSize: 12, color: '#666', marginTop: 2 }}>
-                Compare aussi départ ville, aéroport départ, aéroport arrivée et destination ville.
+                Choisis les aéroports exacts pour comparer ville → aéroport → aéroport → ville.
               </span>
             </span>
           </label>
+
+          {includeAirports && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, margin: '0 0 12px' }}>
+              {fromCity && (
+                <AirportSearch
+                  key={`from-airport-${fromCity.id}-${fromAirport?.code ?? 'empty'}`}
+                  value={fromAirport}
+                  onChange={setFromAirport}
+                  label="Aéroport de départ"
+                  placeholder={`Ex: CDG, ORY, ${fromCity.name}...`}
+                />
+              )}
+              {toCity && (
+                <AirportSearch
+                  key={`to-airport-${toCity.id}-${toAirport?.code ?? 'empty'}`}
+                  value={toAirport}
+                  onChange={setToAirport}
+                  label="Aéroport d’arrivée"
+                  placeholder={`Ex: MAD, ${toCity.name}...`}
+                />
+              )}
+            </div>
+          )}
 
           {/* BRAND CHIPS */}
           <div className="hide-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', margin: '12px 0', paddingBottom: 2 }}>
@@ -192,7 +237,7 @@ export default function HomePage() {
             ))}
           </div>
 
-          <button className="cta-btn" onClick={handleSearch} disabled={!fromCity && !toCity}>
+          <button className="cta-btn" onClick={handleSearch} disabled={!canSearch}>
             Comparer les prix →
           </button>
         </div>
@@ -209,6 +254,8 @@ export default function HomePage() {
                   const tc = getCityByName(r.to);
                   if (fc) setFromCity(fc);
                   if (tc) setToCity(tc);
+                  setFromAirport(null);
+                  setToAirport(null);
                 }}
                 style={{
                   flexShrink: 0, padding: '5px 10px', borderRadius: 8,

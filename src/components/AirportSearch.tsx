@@ -6,11 +6,13 @@ import { searchAirports, type Airport } from '@/lib/airports';
 interface Props {
   value: Airport | null;
   onChange: (airport: Airport | null) => void;
+  label?: string;
+  placeholder?: string;
 }
 
 const labelForAirport = (airport: Airport) => `${airport.code} · ${airport.name}`;
 
-export default function AirportSearch({ value, onChange }: Props) {
+export default function AirportSearch({ value, onChange, label = 'Aéroport', placeholder = 'Ex: CDG, Orly, Heathrow, Dubai...' }: Props) {
   const [query, setQuery] = useState(value ? labelForAirport(value) : '');
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
@@ -68,7 +70,7 @@ export default function AirportSearch({ value, onChange }: Props) {
       >
         <span style={{ fontSize: 18, flexShrink: 0 }}>✈</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: '#555', marginBottom: 2 }}>Aéroport</div>
+          <div style={{ fontSize: 11, color: '#555', marginBottom: 2 }}>{label}</div>
           <input
             ref={inputRef}
             value={query}
@@ -82,7 +84,7 @@ export default function AirportSearch({ value, onChange }: Props) {
               if (query.length > 0) setOpen(true);
             }}
             onKeyDown={handleKey}
-            placeholder="Ex: CDG, Orly, Heathrow, Dubai..."
+            placeholder={placeholder}
             autoComplete="off"
             style={{
               fontSize: 17,

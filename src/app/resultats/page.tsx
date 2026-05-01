@@ -4,7 +4,7 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getCityByName, type City } from '@/lib/cities';
 import { formatPrice } from '@/lib/data';
-import { getAirportsForCity, type Airport } from '@/lib/airports';
+import { getAirportByCode, type Airport } from '@/lib/airports';
 
 interface ResultEntry {
   id: string;
@@ -25,7 +25,7 @@ const airportPriceFromCity = (cityPrice: number, airport: Airport) => {
 const airportReports = (price: number, code: string) =>
   Math.max(4, Math.floor(price * 2 + code.charCodeAt(0) % 7 + 6));
 
-function buildResults(from: City | undefined, to: City | undefined, includeAirports: boolean): ResultEntry[] {
+function buildResults(from: City | undefined, to: City | undefined, fromAirport: Airport | undefined, toAirport: Airport | undefined): ResultEntry[] {
   const entries: ResultEntry[] = [];
 
   const addCity = (city: City, direction: 'from' | 'to') => {
@@ -42,31 +42,32 @@ function buildResults(from: City | undefined, to: City | undefined, includeAirpo
     });
   };
 
-  const addAirports = (city: City, direction: 'from' | 'to') => {
-    if (!includeAirports || city.placeType !== 'city' || city.cityPrice === undefined) return;
+  const addAirport = (airport: Airport | undefined, city: City | undefined, direction: 'from' | 'to') => {
+    if (!airport) return;
 
-    for (const airport of getAirportsForCity(city)) {
-      const price = airportPriceFromCity(city.cityPrice, airport);
-      entries.push({
-        id: `${direction}-airport-${airport.code}`,
-        rank: 0,
-        label: `${airport.code} · ${airport.name}`,
-        sublabel: `${direction === 'from' ? 'Aéroport de départ' : 'Aéroport d’arrivée'} · estimation duty-free depuis ${city.name}`,
-        flag: city.flag,
-        price,
-        type: 'airport',
-        reports: airportReports(price, airport.code),
-      });
-    }
+    const basePrice = city?.cityPrice ?? (direction === 'from' ? to?.cityPrice : from?.cityPrice) ?? 0;
+    if (!basePrice) return;
+
+    const price = airportPriceFromCity(basePrice, airport);
+    entries.push({
+      id: `${direction}-airport-${airport.code}`,
+      rank: 0,
+      label: `${airport.code} · ${airport.name}`,
+      sublabel: `${direction === 'from' ? 'Aéroport de départ' : 'Aéroport d’arrivée'} · prix aéroport estimé`,
+      flag: city?.flag ?? '✈️',
+      price,
+      type: 'airport',
+      reports: airportReports(price, airport.code),
+    });
   };
 
   if (from) {
     addCity(from, 'from');
-    addAirports(from, 'from');
   }
+  addAirport(fromAirport, from, 'from');
 
+  addAirport(toAirport, to, 'to');
   if (to) {
-    addAirports(to, 'to');
     addCity(to, 'to');
   }
 
@@ -80,24 +81,16 @@ function buildResults(from: City | undefined, to: City | undefined, includeAirpo
   return deduped;
 }
 
-function routeStops(from: City | undefined, to: City | undefined, includeAirports: boolean) {
+function routeStops(from: City | undefined, to: City | undefined, fromAirport: Airport | undefined, toAirport: Airport | undefined) {
   const stops: Array<{ label: string; type: 'airport' | 'city' }> = [];
 
   if (from) {
     stops.push({ label: from.name, type: 'city' });
-    if (includeAirports && from.placeType === 'city') {
-      for (const airport of getAirportsForCity(from)) {
-        stops.push({ label: airport.code, type: 'airport' });
-      }
-    }
   }
+  if (fromAirport) stops.push({ label: fromAirport.code, type: 'airport' });
 
+  if (toAirport) stops.push({ label: toAirport.code, type: 'airport' });
   if (to) {
-    if (includeAirports && to.placeType === 'city') {
-      for (const airport of getAirportsForCity(to)) {
-        stops.push({ label: airport.code, type: 'airport' });
-      }
-    }
     stops.push({ label: to.name, type: 'city' });
   }
 
@@ -142,7 +135,7 @@ function ComparisonScope({ includeAirports }: { includeAirports: boolean }) {
       <div>
         <div style={{ fontSize: 13, fontWeight: 700, color: '#F5C842' }}>Aéroports inclus</div>
         <div style={{ fontSize: 12, color: '#777', marginTop: 1 }}>
-          Classement élargi aux villes et aux principaux aéroports de départ/arrivée.
+          Classement élargi aux aéroports explicitement choisis pour ce trajet.
         </div>
       </div>
     </div>
@@ -156,13 +149,18 @@ function ResultsContent() {
   const toName = params.get('to') || '';
   const brand = params.get('brand') || 'Marlboro';
   const includeAirports = params.get('airports') === '1';
+  const fromAirportCode = params.get('fromAirport') || '';
+  const toAirportCode = params.get('toAirport') || '';
   const [tab, setTab] = useState<'paquet' | 'cartouche'>('paquet');
 
   const fromCity = getCityByName(fromName);
   const toCity = getCityByName(toName);
-  const results = buildResults(fromCity, toCity, includeAirports);
+  const fromAirport = includeAirports && fromAirportCode ? getAirportByCode(fromAirportCode) : undefined;
+  const toAirport = includeAirports && toAirportCode ? getAirportByCode(toAirportCode) : undefined;
+  const results = buildResults(fromCity, toCity, fromAirport, toAirport);
   const searchedPlaces = [fromCity, toCity].filter(Boolean) as City[];
-  const stops = routeStops(fromCity, toCity, includeAirports);
+  const stops = routeStops(fromCity, toCity, fromAirport, toAirport);
+  const hasAirportStops = Boolean(fromAirport || toAirport);
 
   if (results.length === 0) {
     return (
@@ -209,7 +207,7 @@ function ResultsContent() {
               {toName && <span style={{ fontSize: 17, fontWeight: 700, color: '#F0EDE4' }}>{toName}</span>}
               {!fromName && !toName && <span style={{ fontSize: 17, fontWeight: 700, color: '#F0EDE4' }}>Comparaison</span>}
             </div>
-            <div style={{ fontSize: 13, color: '#555', marginTop: 1 }}>{brand} · 1 paquet{includeAirports ? ' · villes + aéroports' : ''}</div>
+            <div style={{ fontSize: 13, color: '#555', marginTop: 1 }}>{brand} · 1 paquet{hasAirportStops ? ' · villes + aéroports' : ''}</div>
             <RouteStopPreview stops={stops} />
           </div>
           <button
@@ -254,7 +252,7 @@ function ResultsContent() {
 
       {/* RESULTS LIST */}
       <div style={{ padding: '14px 20px 24px' }}>
-        <ComparisonScope includeAirports={includeAirports} />
+        <ComparisonScope includeAirports={hasAirportStops} />
 
         {/* Tab toggle */}
         <div style={{ display: 'flex', background: '#1a1a1a', borderRadius: 12, padding: 4, marginBottom: 14 }}>
@@ -327,7 +325,7 @@ function ResultsContent() {
         <div style={{ marginTop: 14, fontSize: 12, color: '#333', textAlign: 'center', lineHeight: 1.6 }}>
           Prix basés sur {results.reduce((a, r) => a + r.reports, 0)} entrées estimées<br/>
           <span style={{ color: '#F5C842' }}>
-            Données du CSV Combien coûte{includeAirports ? ' + estimations aéroports' : ''}
+            Données du CSV Combien coûte{hasAirportStops ? ' + estimations aéroports' : ''}
           </span>
         </div>
       </div>
