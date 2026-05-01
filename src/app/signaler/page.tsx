@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BRANDS } from '@/lib/data';
 import { getAirportByCode, type Airport } from '@/lib/airports';
+import { getCityByName } from '@/lib/cities';
+import { savePriceContribution } from '@/lib/contributions';
 import AirportSearch from '@/components/AirportSearch';
 
 const STEPS = ['Localisation', 'Marque & prix', 'Confirmation'];
@@ -24,15 +26,19 @@ export default function SignalerPage() {
   const [customBrand, setCustomBrand] = useState('');
   const [price, setPrice] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const selectedAirport = getAirportByCode(airportCode);
   const finalBrand = brand === 'Autre' ? customBrand.trim() : brand;
+  const parsedPrice = Number(price);
+  const hasValidPrice = Number.isFinite(parsedPrice) && parsedPrice > 0;
+  const cityCountry = selectedAirport?.country ?? getCityByName(city.trim())?.country ?? '';
 
   const canNext = () => {
     if (step === 0) {
       if (locationType === 'airport') return airportCode;
       return locationType && city.trim();
     }
-    if (step === 1) return finalBrand && price;
+    if (step === 1) return finalBrand && hasValidPrice;
     return true;
   };
 
@@ -42,8 +48,33 @@ export default function SignalerPage() {
   };
 
   const handleSubmit = () => {
-    setSubmitted(true);
+    try {
+      savePriceContribution({
+        placeType: locationType === 'airport' ? 'airport' : 'city',
+        place: locationType === 'airport' ? selectedAirport?.code ?? airportCode : city.trim(),
+        city: city.trim() || selectedAirport?.city || selectedAirport?.name || '',
+        country: cityCountry,
+        airportCode: locationType === 'airport' ? airportCode : undefined,
+        airportName: selectedAirport?.name,
+        shopName,
+        brand: finalBrand,
+        priceEur: parsedPrice,
+      });
+      setSubmitError('');
+      setSubmitted(true);
+    } catch {
+      setSubmitError("Impossible d'enregistrer ce prix. Vérifie la marque, le lieu et le montant.");
+    }
   };
+
+  const resultHref = `/resultats?${new URLSearchParams({
+    from: city.trim() || selectedAirport?.city || '',
+    to: '',
+    brand: finalBrand || 'Marlboro',
+    airports: locationType === 'airport' ? '1' : '0',
+    fromAirport: locationType === 'airport' ? airportCode : '',
+    toAirport: '',
+  }).toString()}`;
 
   if (submitted) {
     return (
@@ -80,13 +111,14 @@ export default function SignalerPage() {
           <span style={{ fontSize: 18 }}>⚡</span>
           <span style={{ fontSize: 15, fontWeight: 700, color: '#F5C842' }}>+10 points de karma</span>
         </div>
-        <button
-          className="cta-btn"
-          onClick={() => router.push('/')}
-          style={{ maxWidth: 280 }}
-        >
-          Retour à l&apos;accueil
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 280 }}>
+          <button className="cta-btn" onClick={() => router.push(resultHref)}>
+            Voir dans les résultats
+          </button>
+          <button className="ghost-btn" onClick={() => router.push('/')}>
+            Retour à l&apos;accueil
+          </button>
+        </div>
       </div>
     );
   }
@@ -369,7 +401,7 @@ export default function SignalerPage() {
                   €
                 </span>
               </div>
-              {price && (
+              {price && hasValidPrice && (
                 <div style={{ fontSize: 13, color: '#888', marginTop: 8 }}>
                   Soit{' '}
                   <span style={{ color: '#F5C842', fontWeight: 600 }}>
@@ -424,6 +456,12 @@ export default function SignalerPage() {
                 </div>
               ))}
             </div>
+
+            {submitError && (
+              <div style={{ fontSize: 13, color: '#FF5A5A', marginBottom: 16, lineHeight: 1.5 }}>
+                {submitError}
+              </div>
+            )}
 
             <div
               style={{

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession, signIn } from 'next-auth/react';
 import Link from 'next/link';
@@ -9,6 +9,13 @@ import AirportSearch from '@/components/AirportSearch';
 import { BRANDS, FEED_DATA, STATS, formatPrice } from '@/lib/data';
 import { type City, getCityByName } from '@/lib/cities';
 import { type Airport } from '@/lib/airports';
+import {
+  CONTRIBUTIONS_UPDATED_EVENT,
+  countContributedCities,
+  priceContributionsToFeedEntries,
+  readPriceContributions,
+  type PriceContribution,
+} from '@/lib/contributions';
 
 const POPULAR_ROUTES = [
   { from: 'Paris', to: 'Barcelone' },
@@ -27,8 +34,27 @@ export default function HomePage() {
   const [includeAirports, setIncludeAirports] = useState(false);
   const [fromAirport, setFromAirport] = useState<Airport | null>(null);
   const [toAirport, setToAirport] = useState<Airport | null>(null);
+  const [contributions, setContributions] = useState<PriceContribution[]>([]);
   const [upvoted, setUpvoted] = useState<Set<string>>(new Set());
   const canSearch = Boolean(fromCity || toCity) && (!includeAirports || Boolean((!fromCity || fromAirport) && (!toCity || toAirport)));
+  const feedData = [...priceContributionsToFeedEntries(contributions), ...FEED_DATA].slice(0, 8);
+  const stats = {
+    totalPrices: STATS.totalPrices + contributions.length,
+    citiesCovered: STATS.citiesCovered + countContributedCities(contributions),
+    contributors: STATS.contributors + contributions.length,
+  };
+
+  useEffect(() => {
+    const refreshContributions = () => setContributions(readPriceContributions());
+
+    refreshContributions();
+    window.addEventListener(CONTRIBUTIONS_UPDATED_EVENT, refreshContributions);
+    window.addEventListener('storage', refreshContributions);
+    return () => {
+      window.removeEventListener(CONTRIBUTIONS_UPDATED_EVENT, refreshContributions);
+      window.removeEventListener('storage', refreshContributions);
+    };
+  }, []);
 
   const handleSwap = () => {
     const tmp = fromCity;
@@ -283,7 +309,7 @@ export default function HomePage() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {FEED_DATA.map((entry, i) => {
+          {feedData.map((entry, i) => {
             const isUpvoted = upvoted.has(entry.id);
             return (
               <div key={entry.id} style={{ background: '#1A1A1A', borderRadius: 14, padding: '14px 16px', border: '1px solid #2A2A2A' }}>
@@ -339,9 +365,9 @@ export default function HomePage() {
         {/* STATS */}
         <div style={{ marginTop: 20, background: '#1A1A1A', borderRadius: 16, padding: '14px 16px', border: '1px solid #2A2A2A', display: 'flex', justifyContent: 'space-between' }}>
           {[
-            { n: STATS.totalPrices.toLocaleString('fr-FR'), label: 'prix signalés' },
-            { n: String(STATS.citiesCovered), label: 'villes couvertes' },
-            { n: STATS.contributors.toLocaleString('fr-FR'), label: 'contributeurs' },
+            { n: stats.totalPrices.toLocaleString('fr-FR'), label: 'prix signalés' },
+            { n: String(stats.citiesCovered), label: 'villes couvertes' },
+            { n: stats.contributors.toLocaleString('fr-FR'), label: 'contributeurs' },
           ].map((s, i) => (
             <div key={i} style={{ textAlign: i === 1 ? 'center' : i === 2 ? 'right' : 'left' }}>
               <div style={{ fontSize: 20, fontWeight: 700, color: '#F5C842' }}>{s.n}</div>

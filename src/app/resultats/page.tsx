@@ -1,11 +1,21 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getCityByName, type City } from '@/lib/cities';
 import { formatPrice } from '@/lib/data';
 import { getAirportByCode, type Airport } from '@/lib/airports';
 import { PRICE_ROWS, normalizeText } from '@/lib/price-data';
+import {
+  CONTRIBUTIONS_UPDATED_EVENT,
+  countAirportContributions,
+  countCityContributions,
+  getContributedCityByName,
+  getLatestAirportContribution,
+  getLatestCityContribution,
+  readPriceContributions,
+  type PriceContribution,
+} from '@/lib/contributions';
 
 interface ResultEntry {
   id: string;
@@ -20,44 +30,72 @@ interface ResultEntry {
 
 const reportCount = (price: number) => Math.max(3, Math.round(price * 4));
 
-const getAirportDataPrice = (airport: Airport, brand: string) => {
+const getStaticCityDataPrice = (city: City, brand: string) => {
+  const rows = PRICE_ROWS.filter((row) => normalizeText(row.place) === normalizeText(city.name));
+  const brandMatch = rows.find((row) => normalizeText(row.brand) === normalizeText(brand));
+  return brandMatch ?? rows[0];
+};
+
+const getAirportDataPrice = (airport: Airport, brand: string, contributions: PriceContribution[]) => {
+  const contribution = getLatestAirportContribution(airport, brand, contributions);
+  if (contribution) return { price: contribution.priceEur, source: 'contribution' as const };
+
   const airportKeys = new Set(
     [airport.code, airport.name, ...(airport.aliases ?? [])].map(normalizeText),
   );
   const rows = PRICE_ROWS.filter((row) => airportKeys.has(normalizeText(row.place)));
   const brandMatch = rows.find((row) => normalizeText(row.brand) === normalizeText(brand));
-  return brandMatch ?? rows[0];
+  const row = brandMatch ?? rows[0];
+  return row ? { price: row.priceEur, source: 'csv' as const } : undefined;
 };
 
-function buildResults(from: City | undefined, to: City | undefined, fromAirport: Airport | undefined, toAirport: Airport | undefined, brand: string): ResultEntry[] {
+function buildResults(
+  from: City | undefined,
+  to: City | undefined,
+  fromAirport: Airport | undefined,
+  toAirport: Airport | undefined,
+  brand: string,
+  contributions: PriceContribution[],
+): ResultEntry[] {
   const entries: ResultEntry[] = [];
 
   const addCity = (city: City, direction: 'from' | 'to') => {
-    if (city.cityPrice === undefined) return;
+    const contribution = getLatestCityContribution(city.name, brand, contributions);
+    const staticRow = getStaticCityDataPrice(city, brand);
+    const price = contribution?.priceEur ?? staticRow?.priceEur ?? (city.source === 'contribution' ? undefined : city.cityPrice);
+    if (price === undefined) return;
+    const contributionCount = countCityContributions(city.name, brand, contributions);
     entries.push({
       id: `${direction}-city-${city.id}`,
       rank: 0,
       label: city.placeType === 'country' ? city.name : `En ville à ${city.name}`,
-      sublabel: city.placeType === 'country' ? 'Prix moyen pays · CSV Combien coûte' : `${direction === 'from' ? 'Départ' : 'Destination'} ville · ${city.country}`,
+      sublabel: contribution
+        ? `${direction === 'from' ? 'Départ' : 'Destination'} ville · signalement utilisateur`
+        : city.placeType === 'country'
+          ? 'Prix moyen pays · CSV Combien coûte'
+          : `${direction === 'from' ? 'Départ' : 'Destination'} ville · ${city.country}`,
       flag: city.flag,
-      price: city.cityPrice,
+      price,
       type: 'city',
-      reports: Math.floor(city.cityPrice * (direction === 'from' ? 4 : 3) + (direction === 'from' ? 15 : 10)),
+      reports: contributionCount || Math.floor(price * (direction === 'from' ? 4 : 3) + (direction === 'from' ? 15 : 10)),
     });
   };
 
   const addAirport = (airport: Airport | undefined, city: City | undefined, direction: 'from' | 'to') => {
     if (!airport) return;
-    const airportRow = getAirportDataPrice(airport, brand);
+    const airportRow = getAirportDataPrice(airport, brand, contributions);
+    const contributionCount = countAirportContributions(airport, brand, contributions);
     entries.push({
       id: `${direction}-airport-${airport.code}`,
       rank: 0,
       label: `${airport.code} · ${airport.name}`,
-      sublabel: `${direction === 'from' ? 'Aéroport de départ' : 'Aéroport d’arrivée'} · ${airportRow ? 'donnée CSV/contribution' : 'prix inconnu'}`,
+      sublabel: `${direction === 'from' ? 'Aéroport de départ' : 'Aéroport d’arrivée'} · ${
+        airportRow?.source === 'contribution' ? 'signalement utilisateur' : airportRow ? 'donnée CSV' : 'prix inconnu'
+      }`,
       flag: city?.flag ?? '✈️',
-      price: airportRow?.priceEur,
+      price: airportRow?.price,
       type: 'airport',
-      reports: airportRow ? reportCount(airportRow.priceEur) : 0,
+      reports: airportRow ? contributionCount || reportCount(airportRow.price) : 0,
     });
   };
 
@@ -156,12 +194,25 @@ function ResultsContent() {
   const fromAirportCode = params.get('fromAirport') || '';
   const toAirportCode = params.get('toAirport') || '';
   const [tab, setTab] = useState<'paquet' | 'cartouche'>('paquet');
+  const [contributions, setContributions] = useState<PriceContribution[]>([]);
 
-  const fromCity = getCityByName(fromName);
-  const toCity = getCityByName(toName);
+  useEffect(() => {
+    const refreshContributions = () => setContributions(readPriceContributions());
+
+    refreshContributions();
+    window.addEventListener(CONTRIBUTIONS_UPDATED_EVENT, refreshContributions);
+    window.addEventListener('storage', refreshContributions);
+    return () => {
+      window.removeEventListener(CONTRIBUTIONS_UPDATED_EVENT, refreshContributions);
+      window.removeEventListener('storage', refreshContributions);
+    };
+  }, []);
+
+  const fromCity = getCityByName(fromName) ?? getContributedCityByName(fromName, contributions);
+  const toCity = getCityByName(toName) ?? getContributedCityByName(toName, contributions);
   const fromAirport = includeAirports && fromAirportCode ? getAirportByCode(fromAirportCode) : undefined;
   const toAirport = includeAirports && toAirportCode ? getAirportByCode(toAirportCode) : undefined;
-  const results = buildResults(fromCity, toCity, fromAirport, toAirport, brand);
+  const results = buildResults(fromCity, toCity, fromAirport, toAirport, brand, contributions);
   const searchedPlaces = [fromCity, toCity].filter(Boolean) as City[];
   const stops = routeStops(fromCity, toCity, fromAirport, toAirport);
   const hasAirportStops = Boolean(fromAirport || toAirport);

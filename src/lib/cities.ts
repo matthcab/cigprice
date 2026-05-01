@@ -8,7 +8,7 @@ export interface City {
   cityPrice?: number;
   placeType: 'city' | 'country';
   hasPrice: boolean;
-  source?: 'csv' | 'catalog';
+  source?: 'csv' | 'catalog' | 'contribution';
 }
 
 const ISO_COUNTRY_CODES =

@@ -2,6 +2,13 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { searchCities, type City } from '@/lib/cities';
+import {
+  CONTRIBUTIONS_UPDATED_EVENT,
+  mergeCitySearchResults,
+  readPriceContributions,
+  searchContributedCities,
+  type PriceContribution,
+} from '@/lib/contributions';
 
 interface Props {
   value: string;
@@ -15,10 +22,11 @@ export default function CitySearch({ value, onChange, placeholder, label, dot = 
   const [query, setQuery] = useState(value);
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
+  const [contributions, setContributions] = useState<PriceContribution[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const results = searchCities(query);
+  const results = mergeCitySearchResults(searchCities(query), searchContributedCities(query, contributions));
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -28,6 +36,18 @@ export default function CitySearch({ value, onChange, placeholder, label, dot = 
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  useEffect(() => {
+    const refreshContributions = () => setContributions(readPriceContributions());
+
+    refreshContributions();
+    window.addEventListener(CONTRIBUTIONS_UPDATED_EVENT, refreshContributions);
+    window.addEventListener('storage', refreshContributions);
+    return () => {
+      window.removeEventListener(CONTRIBUTIONS_UPDATED_EVENT, refreshContributions);
+      window.removeEventListener('storage', refreshContributions);
+    };
   }, []);
 
   const select = (city: City) => {
