@@ -4,8 +4,10 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getCityByName, type City } from '@/lib/cities';
 import { formatPrice } from '@/lib/data';
+import { getAirportsForCity, type Airport } from '@/lib/airports';
 
 interface ResultEntry {
+  id: string;
   rank: number;
   label: string;
   sublabel: string;
@@ -15,36 +17,136 @@ interface ResultEntry {
   reports: number;
 }
 
-function buildResults(from: City | undefined, to: City | undefined): ResultEntry[] {
+const airportPriceFromCity = (cityPrice: number, airport: Airport) => {
+  const factor = airport.type === 'large_airport' ? 0.9 : airport.type === 'medium_airport' ? 0.92 : 0.95;
+  return Math.round(cityPrice * factor * 100) / 100;
+};
+
+const airportReports = (price: number, code: string) =>
+  Math.max(4, Math.floor(price * 2 + code.charCodeAt(0) % 7 + 6));
+
+function buildResults(from: City | undefined, to: City | undefined, includeAirports: boolean): ResultEntry[] {
   const entries: ResultEntry[] = [];
 
-  if (to && to.cityPrice !== undefined) {
+  const addCity = (city: City, direction: 'from' | 'to') => {
+    if (city.cityPrice === undefined) return;
     entries.push({
+      id: `${direction}-city-${city.id}`,
       rank: 0,
-      label: to.placeType === 'country' ? to.name : `En ville à ${to.name}`,
-      sublabel: to.placeType === 'country' ? 'Prix moyen pays · CSV Combien coûte' : `Tabac local · ${to.country}`,
-      flag: to.flag,
-      price: to.cityPrice,
+      label: city.placeType === 'country' ? city.name : `En ville à ${city.name}`,
+      sublabel: city.placeType === 'country' ? 'Prix moyen pays · CSV Combien coûte' : `${direction === 'from' ? 'Départ' : 'Destination'} ville · ${city.country}`,
+      flag: city.flag,
+      price: city.cityPrice,
       type: 'city',
-      reports: Math.floor(to.cityPrice * 3 + 10),
+      reports: Math.floor(city.cityPrice * (direction === 'from' ? 4 : 3) + (direction === 'from' ? 15 : 10)),
     });
+  };
+
+  const addAirports = (city: City, direction: 'from' | 'to') => {
+    if (!includeAirports || city.placeType !== 'city' || city.cityPrice === undefined) return;
+
+    for (const airport of getAirportsForCity(city)) {
+      const price = airportPriceFromCity(city.cityPrice, airport);
+      entries.push({
+        id: `${direction}-airport-${airport.code}`,
+        rank: 0,
+        label: `${airport.code} · ${airport.name}`,
+        sublabel: `${direction === 'from' ? 'Aéroport de départ' : 'Aéroport d’arrivée'} · estimation duty-free depuis ${city.name}`,
+        flag: city.flag,
+        price,
+        type: 'airport',
+        reports: airportReports(price, airport.code),
+      });
+    }
+  };
+
+  if (from) {
+    addCity(from, 'from');
+    addAirports(from, 'from');
   }
 
-  if (from && from.cityPrice !== undefined) {
-    entries.push({
-      rank: 0,
-      label: from.placeType === 'country' ? from.name : `En ville à ${from.name}`,
-      sublabel: from.placeType === 'country' ? 'Prix moyen pays · CSV Combien coûte' : `Bureau de tabac · ${from.country}`,
-      flag: from.flag,
-      price: from.cityPrice,
-      type: 'city',
-      reports: Math.floor(from.cityPrice * 4 + 15),
-    });
+  if (to) {
+    addAirports(to, 'to');
+    addCity(to, 'to');
   }
 
-  entries.sort((a, b) => a.price - b.price);
-  entries.forEach((e, i) => (e.rank = i + 1));
-  return entries;
+  const deduped = Array.from(new Map(entries.map((entry) => [entry.id, entry])).values());
+
+  deduped.sort((a, b) => {
+    if (a.price !== b.price) return a.price - b.price;
+    return a.label.localeCompare(b.label, 'fr');
+  });
+  deduped.forEach((e, i) => (e.rank = i + 1));
+  return deduped;
+}
+
+function routeStops(from: City | undefined, to: City | undefined, includeAirports: boolean) {
+  const stops: Array<{ label: string; type: 'airport' | 'city' }> = [];
+
+  if (from) {
+    stops.push({ label: from.name, type: 'city' });
+    if (includeAirports && from.placeType === 'city') {
+      for (const airport of getAirportsForCity(from)) {
+        stops.push({ label: airport.code, type: 'airport' });
+      }
+    }
+  }
+
+  if (to) {
+    if (includeAirports && to.placeType === 'city') {
+      for (const airport of getAirportsForCity(to)) {
+        stops.push({ label: airport.code, type: 'airport' });
+      }
+    }
+    stops.push({ label: to.name, type: 'city' });
+  }
+
+  return stops;
+}
+
+function RouteStopPreview({ stops }: { stops: Array<{ label: string; type: 'airport' | 'city' }> }) {
+  if (stops.length <= 2) return null;
+
+  return (
+    <div className="hide-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', marginTop: 8, paddingBottom: 2 }}>
+      {stops.map((stop, index) => (
+        <span
+          key={`${stop.type}-${stop.label}-${index}`}
+          className={`pill ${stop.type === 'airport' ? 'pill-yellow' : 'pill-gray'}`}
+          style={{ fontSize: 11, flexShrink: 0 }}
+        >
+          {stop.type === 'airport' ? '✈' : '🏙'} {stop.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ComparisonScope({ includeAirports }: { includeAirports: boolean }) {
+  if (!includeAirports) return null;
+
+  return (
+    <div
+      style={{
+        background: 'rgba(245,200,66,0.06)',
+        border: '1px solid rgba(245,200,66,0.18)',
+        borderRadius: 12,
+        padding: '10px 12px',
+        marginBottom: 14,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+      }}
+    >
+      <span style={{ fontSize: 17, lineHeight: 1 }}>✈</span>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#F5C842' }}>Aéroports inclus</div>
+        <div style={{ fontSize: 12, color: '#777', marginTop: 1 }}>
+          Classement élargi aux villes et aux principaux aéroports de départ/arrivée.
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ResultsContent() {
@@ -53,12 +155,14 @@ function ResultsContent() {
   const fromName = params.get('from') || '';
   const toName = params.get('to') || '';
   const brand = params.get('brand') || 'Marlboro';
+  const includeAirports = params.get('airports') === '1';
   const [tab, setTab] = useState<'paquet' | 'cartouche'>('paquet');
 
   const fromCity = getCityByName(fromName);
   const toCity = getCityByName(toName);
-  const results = buildResults(fromCity, toCity);
+  const results = buildResults(fromCity, toCity, includeAirports);
   const searchedPlaces = [fromCity, toCity].filter(Boolean) as City[];
+  const stops = routeStops(fromCity, toCity, includeAirports);
 
   if (results.length === 0) {
     return (
@@ -105,7 +209,8 @@ function ResultsContent() {
               {toName && <span style={{ fontSize: 17, fontWeight: 700, color: '#F0EDE4' }}>{toName}</span>}
               {!fromName && !toName && <span style={{ fontSize: 17, fontWeight: 700, color: '#F0EDE4' }}>Comparaison</span>}
             </div>
-            <div style={{ fontSize: 13, color: '#555', marginTop: 1 }}>{brand} · 1 paquet</div>
+            <div style={{ fontSize: 13, color: '#555', marginTop: 1 }}>{brand} · 1 paquet{includeAirports ? ' · villes + aéroports' : ''}</div>
+            <RouteStopPreview stops={stops} />
           </div>
           <button
             onClick={() => router.push('/')}
@@ -149,6 +254,8 @@ function ResultsContent() {
 
       {/* RESULTS LIST */}
       <div style={{ padding: '14px 20px 24px' }}>
+        <ComparisonScope includeAirports={includeAirports} />
+
         {/* Tab toggle */}
         <div style={{ display: 'flex', background: '#1a1a1a', borderRadius: 12, padding: 4, marginBottom: 14 }}>
           {(['paquet', 'cartouche'] as const).map((t) => (
@@ -173,7 +280,7 @@ function ResultsContent() {
 
             return (
               <div
-                key={r.rank}
+                key={r.id}
                 style={{
                   background: isBest ? 'rgba(76,175,130,0.04)' : '#1A1A1A',
                   borderRadius: 16, padding: 16,
@@ -219,7 +326,9 @@ function ResultsContent() {
 
         <div style={{ marginTop: 14, fontSize: 12, color: '#333', textAlign: 'center', lineHeight: 1.6 }}>
           Prix basés sur {results.reduce((a, r) => a + r.reports, 0)} entrées estimées<br/>
-          <span style={{ color: '#F5C842' }}>Données du CSV Combien coûte</span>
+          <span style={{ color: '#F5C842' }}>
+            Données du CSV Combien coûte{includeAirports ? ' + estimations aéroports' : ''}
+          </span>
         </div>
       </div>
     </div>

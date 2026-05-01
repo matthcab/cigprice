@@ -27,10 +27,69 @@ const typeBoost = (airport: Airport) => {
   return 2;
 };
 
+const cityAirportPriority: Record<string, string[]> = {
+  paris: ['CDG', 'ORY', 'LBG'],
+  london: ['LHR', 'LGW', 'STN', 'LTN', 'LCY'],
+  'new york': ['JFK', 'EWR', 'LGA'],
+  tokyo: ['HND', 'NRT'],
+  istanbul: ['IST', 'SAW'],
+  bangkok: ['BKK', 'DMK'],
+  milan: ['MXP', 'LIN', 'BGY'],
+  rome: ['FCO', 'CIA'],
+};
+
+interface AirportPlace {
+  name: string;
+  country?: string;
+}
+
 export const AIRPORTS = airportRows as Airport[];
 
 export const getAirportByCode = (code: string) =>
   AIRPORTS.find((airport) => airport.code.toLowerCase() === code.toLowerCase());
+
+export function getAirportsForCity(place: AirportPlace, maxResults = 2): Airport[] {
+  const city = normalize(place.name);
+  const country = place.country ? normalize(place.country) : '';
+  const priority = cityAirportPriority[city] ?? [];
+
+  const matchesWithCountry = AIRPORTS.filter((airport) => {
+    const airportCity = normalize(airport.city);
+    const airportCountry = normalize(airport.country);
+    return airportCity === city && (!country || airportCountry === country);
+  });
+
+  const matches = matchesWithCountry.length > 0
+    ? matchesWithCountry
+    : AIRPORTS.filter((airport) => normalize(airport.city) === city);
+
+  const fallbackMatches = matches.length > 0 ? matches : searchAirports(place.name, 12).filter((airport) => {
+    const airportCountry = normalize(airport.country);
+    return !country || airportCountry === country;
+  });
+
+  const largestType = fallbackMatches.some((airport) => airport.type === 'large_airport')
+    ? 'large_airport'
+    : fallbackMatches.some((airport) => airport.type === 'medium_airport')
+      ? 'medium_airport'
+      : 'small_airport';
+
+  return fallbackMatches
+    .filter((airport) => airport.type === largestType)
+    .sort((a, b) => {
+      const priorityA = priority.indexOf(a.code);
+      const priorityB = priority.indexOf(b.code);
+      if (priorityA !== -1 || priorityB !== -1) {
+        if (priorityA === -1) return 1;
+        if (priorityB === -1) return -1;
+        return priorityA - priorityB;
+      }
+      const airportTypePriority = typeBoost(a) - typeBoost(b);
+      if (airportTypePriority !== 0) return airportTypePriority;
+      return `${a.city} ${a.name}`.localeCompare(`${b.city} ${b.name}`, 'fr');
+    })
+    .slice(0, maxResults);
+}
 
 export function searchAirports(query: string, maxResults = 8): Airport[] {
   if (!query.trim()) return [];

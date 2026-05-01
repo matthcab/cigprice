@@ -22,6 +22,7 @@ export default function HomePage() {
   const [fromCity, setFromCity] = useState<City | null>(getCityByName('Paris') ?? null);
   const [toCity, setToCity] = useState<City | null>(null);
   const [brand, setBrand] = useState('Marlboro');
+  const [includeAirports, setIncludeAirports] = useState(false);
   const [upvoted, setUpvoted] = useState<Set<string>>(new Set());
 
   const handleSwap = () => {
@@ -36,6 +37,7 @@ export default function HomePage() {
       from: fromCity?.name ?? '',
       to: toCity?.name ?? '',
       brand,
+      airports: includeAirports ? '1' : '0',
     }).toString();
     router.push(`/resultats?${query}`);
   };
@@ -133,6 +135,43 @@ export default function HomePage() {
             label="Destination"
             dot="empty"
           />
+
+          {/* AIRPORTS OPTION */}
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              margin: '12px 0',
+              padding: '10px 12px',
+              borderRadius: 12,
+              background: includeAirports ? 'rgba(245,200,66,0.07)' : '#111',
+              border: `1px solid ${includeAirports ? 'rgba(245,200,66,0.28)' : '#2A2A2A'}`,
+              cursor: 'pointer',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={includeAirports}
+              onChange={(event) => setIncludeAirports(event.target.checked)}
+              style={{
+                width: 18,
+                height: 18,
+                accentColor: '#F5C842',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>✈</span>
+            <span style={{ minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: includeAirports ? '#F5C842' : '#F0EDE4' }}>
+                Inclure les aéroports du trajet
+              </span>
+              <span style={{ display: 'block', fontSize: 12, color: '#666', marginTop: 2 }}>
+                Compare aussi départ ville, aéroport départ, aéroport arrivée et destination ville.
+              </span>
+            </span>
+          </label>
 
           {/* BRAND CHIPS */}
           <div className="hide-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', margin: '12px 0', paddingBottom: 2 }}>
