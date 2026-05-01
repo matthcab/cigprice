@@ -17,47 +17,24 @@ interface ResultEntry {
 
 function buildResults(from: City | undefined, to: City | undefined): ResultEntry[] {
   const entries: ResultEntry[] = [];
-  const seed = Math.random; // kept stable per render via useMemo in real app
 
-  if (to) {
+  if (to && to.cityPrice !== undefined) {
     entries.push({
       rank: 0,
-      label: `En ville à ${to.name}`,
-      sublabel: `Tabac local · Centre-ville`,
+      label: to.placeType === 'country' ? to.name : `En ville à ${to.name}`,
+      sublabel: to.placeType === 'country' ? 'Prix moyen pays · CSV Combien coûte' : `Tabac local · ${to.country}`,
       flag: to.flag,
       price: to.cityPrice,
       type: 'city',
       reports: Math.floor(to.cityPrice * 3 + 10),
     });
-    if (to.airportPrice && to.airportName && to.airportCode) {
-      entries.push({
-        rank: 0,
-        label: to.airportName,
-        sublabel: `Duty-Free · Zone embarquement`,
-        flag: to.flag,
-        price: to.airportPrice,
-        type: 'airport',
-        reports: Math.floor(to.airportPrice * 4 + 8),
-      });
-    }
   }
 
-  if (from) {
-    if (from.airportPrice && from.airportName && from.airportCode) {
-      entries.push({
-        rank: 0,
-        label: from.airportName,
-        sublabel: `Boutique · Salle embarquement`,
-        flag: from.flag,
-        price: from.airportPrice,
-        type: 'airport',
-        reports: Math.floor(from.airportPrice * 5 + 12),
-      });
-    }
+  if (from && from.cityPrice !== undefined) {
     entries.push({
       rank: 0,
-      label: `En ville à ${from.name}`,
-      sublabel: `Bureau de tabac · Centre-ville`,
+      label: from.placeType === 'country' ? from.name : `En ville à ${from.name}`,
+      sublabel: from.placeType === 'country' ? 'Prix moyen pays · CSV Combien coûte' : `Bureau de tabac · ${from.country}`,
       flag: from.flag,
       price: from.cityPrice,
       type: 'city',
@@ -81,14 +58,17 @@ function ResultsContent() {
   const fromCity = getCityByName(fromName);
   const toCity = getCityByName(toName);
   const results = buildResults(fromCity, toCity);
+  const searchedPlaces = [fromCity, toCity].filter(Boolean) as City[];
 
   if (results.length === 0) {
     return (
       <div style={{ padding: '40px 20px', textAlign: 'center' }}>
         <div style={{ fontSize: 40, marginBottom: 16 }}>🔍</div>
-        <div style={{ fontSize: 20, fontWeight: 700, color: '#F0EDE4', marginBottom: 8 }}>Aucun résultat</div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: '#F0EDE4', marginBottom: 8 }}>Pas encore de prix</div>
         <div style={{ fontSize: 14, color: '#888', marginBottom: 24 }}>
-          Aucune ville trouvée. Essaie des noms comme "Paris", "Barcelone", "Dubaï"...
+          {searchedPlaces.length > 0
+            ? `${searchedPlaces.map((place) => place.name).join(' → ')} est bien accepté dans la recherche, mais le CSV ne contient pas encore de prix pour ce lieu.`
+            : 'Aucun lieu trouvé. Essaie un pays ou une grande ville.'}
         </div>
         <button className="cta-btn" onClick={() => router.push('/')} style={{ maxWidth: 240, margin: '0 auto' }}>
           Nouvelle recherche
@@ -238,8 +218,8 @@ function ResultsContent() {
         </div>
 
         <div style={{ marginTop: 14, fontSize: 12, color: '#333', textAlign: 'center', lineHeight: 1.6 }}>
-          Prix basés sur {results.reduce((a, r) => a + r.reports, 0)} signalements<br/>
-          <span style={{ color: '#F5C842' }}>Données communautaires</span>
+          Prix basés sur {results.reduce((a, r) => a + r.reports, 0)} entrées estimées<br/>
+          <span style={{ color: '#F5C842' }}>Données du CSV Combien coûte</span>
         </div>
       </div>
     </div>

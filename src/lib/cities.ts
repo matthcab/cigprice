@@ -1,122 +1,240 @@
+import { PRICE_ROWS, normalizeText } from './price-data';
+
 export interface City {
   id: string;
   name: string;
   country: string;
   flag: string;
-  airportCode?: string;
-  airportName?: string;
-  cityPrice: number;
-  airportPrice?: number;
+  cityPrice?: number;
+  placeType: 'city' | 'country';
+  hasPrice: boolean;
+  source?: 'csv' | 'catalog';
 }
 
-export const CITIES: City[] = [
-  // France
-  { id: 'paris', name: 'Paris', country: 'France', flag: '🇫🇷', airportCode: 'CDG', airportName: 'Aéroport CDG · T2E', cityPrice: 11.2, airportPrice: 10.5 },
-  { id: 'lyon', name: 'Lyon', country: 'France', flag: '🇫🇷', airportCode: 'LYS', airportName: 'Aéroport Lyon-Saint Exupéry', cityPrice: 10.8, airportPrice: 10.2 },
-  { id: 'marseille', name: 'Marseille', country: 'France', flag: '🇫🇷', airportCode: 'MRS', airportName: 'Aéroport Marseille-Provence', cityPrice: 10.5, airportPrice: 10.0 },
-  { id: 'nice', name: 'Nice', country: 'France', flag: '🇫🇷', airportCode: 'NCE', airportName: 'Aéroport Nice Côte d\'Azur', cityPrice: 10.6, airportPrice: 9.8 },
-  { id: 'bordeaux', name: 'Bordeaux', country: 'France', flag: '🇫🇷', cityPrice: 10.7 },
-  { id: 'toulouse', name: 'Toulouse', country: 'France', flag: '🇫🇷', airportCode: 'TLS', airportName: 'Aéroport Toulouse-Blagnac', cityPrice: 10.7, airportPrice: 10.1 },
-  { id: 'nantes', name: 'Nantes', country: 'France', flag: '🇫🇷', cityPrice: 10.6 },
-  { id: 'strasbourg', name: 'Strasbourg', country: 'France', flag: '🇫🇷', cityPrice: 10.5 },
-  // Espagne
-  { id: 'madrid', name: 'Madrid', country: 'Espagne', flag: '🇪🇸', airportCode: 'MAD', airportName: 'Aéroport MAD · T4 Dufry', cityPrice: 5.2, airportPrice: 6.8 },
-  { id: 'barcelone', name: 'Barcelone', country: 'Espagne', flag: '🇪🇸', airportCode: 'BCN', airportName: 'Aéroport BCN · T1', cityPrice: 5.5, airportPrice: 5.9 },
-  { id: 'seville', name: 'Séville', country: 'Espagne', flag: '🇪🇸', cityPrice: 5.1 },
-  { id: 'valence', name: 'Valence', country: 'Espagne', flag: '🇪🇸', cityPrice: 5.0 },
-  { id: 'malaga', name: 'Malaga', country: 'Espagne', flag: '🇪🇸', airportCode: 'AGP', airportName: 'Aéroport Malaga Costa del Sol', cityPrice: 5.3, airportPrice: 6.2 },
-  { id: 'bilbao', name: 'Bilbao', country: 'Espagne', flag: '🇪🇸', cityPrice: 5.2 },
-  // Portugal
-  { id: 'lisbonne', name: 'Lisbonne', country: 'Portugal', flag: '🇵🇹', airportCode: 'LIS', airportName: 'Aéroport Humberto Delgado', cityPrice: 5.8, airportPrice: 7.0 },
-  { id: 'porto', name: 'Porto', country: 'Portugal', flag: '🇵🇹', airportCode: 'OPO', airportName: 'Aéroport Francisco de Sá Carneiro', cityPrice: 5.6, airportPrice: 6.8 },
-  // Italie
-  { id: 'rome', name: 'Rome', country: 'Italie', flag: '🇮🇹', airportCode: 'FCO', airportName: 'Aéroport Fiumicino · T3', cityPrice: 6.5, airportPrice: 8.0 },
-  { id: 'milan', name: 'Milan', country: 'Italie', flag: '🇮🇹', airportCode: 'MXP', airportName: 'Aéroport Malpensa · T1', cityPrice: 6.8, airportPrice: 7.5 },
-  { id: 'naples', name: 'Naples', country: 'Italie', flag: '🇮🇹', cityPrice: 6.2 },
-  { id: 'venise', name: 'Venise', country: 'Italie', flag: '🇮🇹', airportCode: 'VCE', airportName: 'Aéroport Marco Polo', cityPrice: 7.0, airportPrice: 8.5 },
-  { id: 'florence', name: 'Florence', country: 'Italie', flag: '🇮🇹', cityPrice: 6.6 },
-  // Allemagne
-  { id: 'berlin', name: 'Berlin', country: 'Allemagne', flag: '🇩🇪', airportCode: 'BER', airportName: 'Aéroport Berlin Brandenburg', cityPrice: 7.2, airportPrice: 8.0 },
-  { id: 'munich', name: 'Munich', country: 'Allemagne', flag: '🇩🇪', airportCode: 'MUC', airportName: 'Aéroport Munich · T2', cityPrice: 7.5, airportPrice: 8.2 },
-  { id: 'francfort', name: 'Francfort', country: 'Allemagne', flag: '🇩🇪', airportCode: 'FRA', airportName: 'Aéroport Francfort · T1', cityPrice: 7.3, airportPrice: 7.8 },
-  { id: 'hambourg', name: 'Hambourg', country: 'Allemagne', flag: '🇩🇪', cityPrice: 7.1 },
-  // Pays-Bas
-  { id: 'amsterdam', name: 'Amsterdam', country: 'Pays-Bas', flag: '🇳🇱', airportCode: 'AMS', airportName: 'Aéroport Schiphol', cityPrice: 8.5, airportPrice: 9.2 },
-  // Belgique
-  { id: 'bruxelles', name: 'Bruxelles', country: 'Belgique', flag: '🇧🇪', airportCode: 'BRU', airportName: 'Aéroport Brussels Airport', cityPrice: 8.0, airportPrice: 9.5 },
-  // Royaume-Uni
-  { id: 'londres', name: 'Londres', country: 'Royaume-Uni', flag: '🇬🇧', airportCode: 'LHR', airportName: 'Aéroport Heathrow · T5', cityPrice: 14.5, airportPrice: 16.0 },
-  { id: 'manchester', name: 'Manchester', country: 'Royaume-Uni', flag: '🇬🇧', airportCode: 'MAN', airportName: 'Aéroport Manchester', cityPrice: 13.8, airportPrice: 15.0 },
-  { id: 'edimbourg', name: 'Édimbourg', country: 'Royaume-Uni', flag: '🇬🇧', cityPrice: 14.0 },
-  // Pologne
-  { id: 'varsovie', name: 'Varsovie', country: 'Pologne', flag: '🇵🇱', airportCode: 'WAW', airportName: 'Aéroport Chopin', cityPrice: 4.1, airportPrice: 5.5 },
-  { id: 'cracovie', name: 'Cracovie', country: 'Pologne', flag: '🇵🇱', cityPrice: 4.0 },
-  // Tchéquie
-  { id: 'prague', name: 'Prague', country: 'Tchéquie', flag: '🇨🇿', airportCode: 'PRG', airportName: 'Aéroport Václav Havel', cityPrice: 4.5, airportPrice: 5.8 },
-  // Hongrie
-  { id: 'budapest', name: 'Budapest', country: 'Hongrie', flag: '🇭🇺', airportCode: 'BUD', airportName: 'Aéroport Budapest Liszt Ferenc', cityPrice: 3.8, airportPrice: 5.2 },
-  // Grèce
-  { id: 'athenes', name: 'Athènes', country: 'Grèce', flag: '🇬🇷', airportCode: 'ATH', airportName: 'Aéroport Elefthérios-Venizélos', cityPrice: 4.8, airportPrice: 6.2 },
-  { id: 'thessalonique', name: 'Thessalonique', country: 'Grèce', flag: '🇬🇷', cityPrice: 4.5 },
-  // Turquie
-  { id: 'istanbul', name: 'Istanbul', country: 'Turquie', flag: '🇹🇷', airportCode: 'IST', airportName: 'Aéroport Istanbul · T1', cityPrice: 3.5, airportPrice: 4.0 },
-  // Émirats
-  { id: 'dubai', name: 'Dubaï', country: 'Émirats Arabes Unis', flag: '🇦🇪', airportCode: 'DXB', airportName: 'Dubai Duty-Free · T3', cityPrice: 3.1, airportPrice: 3.2 },
-  { id: 'abu-dhabi', name: 'Abu Dhabi', country: 'Émirats Arabes Unis', flag: '🇦🇪', airportCode: 'AUH', airportName: 'Aéroport Zayed · T1', cityPrice: 3.0, airportPrice: 3.1 },
-  // Thaïlande
-  { id: 'bangkok', name: 'Bangkok', country: 'Thaïlande', flag: '🇹🇭', airportCode: 'BKK', airportName: 'Aéroport Suvarnabhumi', cityPrice: 2.8, airportPrice: 3.5 },
-  // Maroc
-  { id: 'casablanca', name: 'Casablanca', country: 'Maroc', flag: '🇲🇦', airportCode: 'CMN', airportName: 'Aéroport Mohammed V', cityPrice: 2.5, airportPrice: 3.0 },
-  { id: 'marrakech', name: 'Marrakech', country: 'Maroc', flag: '🇲🇦', airportCode: 'RAK', airportName: 'Aéroport Menara', cityPrice: 2.3, airportPrice: 2.9 },
-  // Tunisie
-  { id: 'tunis', name: 'Tunis', country: 'Tunisie', flag: '🇹🇳', airportCode: 'TUN', airportName: 'Aéroport Carthage', cityPrice: 2.2, airportPrice: 3.0 },
-  // Suisse
-  { id: 'geneve', name: 'Genève', country: 'Suisse', flag: '🇨🇭', airportCode: 'GVA', airportName: 'Aéroport Genève-Cointrin', cityPrice: 9.5, airportPrice: 10.0 },
-  { id: 'zurich', name: 'Zürich', country: 'Suisse', flag: '🇨🇭', airportCode: 'ZRH', airportName: 'Aéroport de Zürich', cityPrice: 9.8, airportPrice: 10.2 },
-  // Autriche
-  { id: 'vienne', name: 'Vienne', country: 'Autriche', flag: '🇦🇹', airportCode: 'VIE', airportName: 'Aéroport Wien Schwechat', cityPrice: 5.8, airportPrice: 7.0 },
-  // Suède
-  { id: 'stockholm', name: 'Stockholm', country: 'Suède', flag: '🇸🇪', airportCode: 'ARN', airportName: 'Aéroport Arlanda', cityPrice: 8.0, airportPrice: 9.0 },
-  // Danemark
-  { id: 'copenhague', name: 'Copenhague', country: 'Danemark', flag: '🇩🇰', airportCode: 'CPH', airportName: 'Aéroport Kastrup', cityPrice: 9.2, airportPrice: 10.5 },
-  // USA
-  { id: 'new-york', name: 'New York', country: 'États-Unis', flag: '🇺🇸', airportCode: 'JFK', airportName: 'Aéroport JFK · T4', cityPrice: 12.0, airportPrice: 14.0 },
-  { id: 'los-angeles', name: 'Los Angeles', country: 'États-Unis', flag: '🇺🇸', airportCode: 'LAX', airportName: 'Aéroport LAX · T7', cityPrice: 11.0, airportPrice: 12.5 },
-  // Japon
-  { id: 'tokyo', name: 'Tokyo', country: 'Japon', flag: '🇯🇵', airportCode: 'NRT', airportName: 'Aéroport Narita · T1', cityPrice: 4.0, airportPrice: 4.5 },
+const ISO_COUNTRY_CODES =
+  'AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW'.split(
+    ' ',
+  );
+
+const MANUAL_COUNTRY_ALIASES: Record<string, string> = {
+  angleterre: 'GB',
+  ecosse: 'GB',
+  'etats unis': 'US',
+  usa: 'US',
+  amerique: 'US',
+  russie: 'RU',
+  coree: 'KR',
+  'coree du sud': 'KR',
+  emirats: 'AE',
+  'emirats arabes unis': 'AE',
+  birmanie: 'MM',
+  myanmar: 'MM',
+  tchequie: 'CZ',
+  'republique tcheque': 'CZ',
+  turquie: 'TR',
+};
+
+const EXTRA_MAJOR_CITIES: Array<{ name: string; country: string }> = [
+  { name: 'Londres', country: 'Royaume-Uni' },
+  { name: 'London', country: 'Royaume-Uni' },
+  { name: 'New York', country: 'États-Unis' },
+  { name: 'Los Angeles', country: 'États-Unis' },
+  { name: 'Chicago', country: 'États-Unis' },
+  { name: 'Houston', country: 'États-Unis' },
+  { name: 'Miami', country: 'États-Unis' },
+  { name: 'San Francisco', country: 'États-Unis' },
+  { name: 'Toronto', country: 'Canada' },
+  { name: 'Vancouver', country: 'Canada' },
+  { name: 'Mexico', country: 'Mexique' },
+  { name: 'Mexico City', country: 'Mexique' },
+  { name: 'São Paulo', country: 'Brésil' },
+  { name: 'Rio de Janeiro', country: 'Brésil' },
+  { name: 'Buenos Aires', country: 'Argentine' },
+  { name: 'Santiago', country: 'Chili' },
+  { name: 'Lima', country: 'Pérou' },
+  { name: 'Bogota', country: 'Colombie' },
+  { name: 'Madrid', country: 'Espagne' },
+  { name: 'Barcelone', country: 'Espagne' },
+  { name: 'Barcelona', country: 'Espagne' },
+  { name: 'Lisbonne', country: 'Portugal' },
+  { name: 'Lisbon', country: 'Portugal' },
+  { name: 'Rome', country: 'Italie' },
+  { name: 'Milan', country: 'Italie' },
+  { name: 'Venise', country: 'Italie' },
+  { name: 'Berlin', country: 'Allemagne' },
+  { name: 'Munich', country: 'Allemagne' },
+  { name: 'Hambourg', country: 'Allemagne' },
+  { name: 'Amsterdam', country: 'Pays-Bas' },
+  { name: 'Bruxelles', country: 'Belgique' },
+  { name: 'Brussels', country: 'Belgique' },
+  { name: 'Zurich', country: 'Suisse' },
+  { name: 'Genève', country: 'Suisse' },
+  { name: 'Vienne', country: 'Autriche' },
+  { name: 'Vienna', country: 'Autriche' },
+  { name: 'Prague', country: 'Tchéquie' },
+  { name: 'Varsovie', country: 'Pologne' },
+  { name: 'Warsaw', country: 'Pologne' },
+  { name: 'Budapest', country: 'Hongrie' },
+  { name: 'Athènes', country: 'Grèce' },
+  { name: 'Istanbul', country: 'Turquie' },
+  { name: 'Moscou', country: 'Russie' },
+  { name: 'Moscow', country: 'Russie' },
+  { name: 'Dubaï', country: 'Émirats Arabes Unis' },
+  { name: 'Dubai', country: 'Émirats Arabes Unis' },
+  { name: 'Abu Dhabi', country: 'Émirats Arabes Unis' },
+  { name: 'Doha', country: 'Qatar' },
+  { name: 'Riyad', country: 'Arabie Saoudite' },
+  { name: 'Riyadh', country: 'Arabie Saoudite' },
+  { name: 'Tel Aviv', country: 'Israël' },
+  { name: 'Le Caire', country: 'Égypte' },
+  { name: 'Cairo', country: 'Égypte' },
+  { name: 'Casablanca', country: 'Maroc' },
+  { name: 'Marrakech', country: 'Maroc' },
+  { name: 'Tunis', country: 'Tunisie' },
+  { name: 'Alger', country: 'Algérie' },
+  { name: 'Lagos', country: 'Nigeria' },
+  { name: 'Nairobi', country: 'Kenya' },
+  { name: 'Le Cap', country: 'Afrique du Sud' },
+  { name: 'Cape Town', country: 'Afrique du Sud' },
+  { name: 'Johannesburg', country: 'Afrique du Sud' },
+  { name: 'Mumbai', country: 'Inde' },
+  { name: 'Delhi', country: 'Inde' },
+  { name: 'Bangalore', country: 'Inde' },
+  { name: 'Bangkok', country: 'Thaïlande' },
+  { name: 'Singapour', country: 'Singapour' },
+  { name: 'Singapore', country: 'Singapour' },
+  { name: 'Hong Kong', country: 'Hong Kong' },
+  { name: 'Shanghai', country: 'Chine' },
+  { name: 'Pékin', country: 'Chine' },
+  { name: 'Beijing', country: 'Chine' },
+  { name: 'Séoul', country: 'Corée du Sud' },
+  { name: 'Seoul', country: 'Corée du Sud' },
+  { name: 'Tokyo', country: 'Japon' },
+  { name: 'Osaka', country: 'Japon' },
+  { name: 'Taipei', country: 'Taïwan' },
+  { name: 'Jakarta', country: 'Indonésie' },
+  { name: 'Manille', country: 'Philippines' },
+  { name: 'Manila', country: 'Philippines' },
+  { name: 'Sydney', country: 'Australie' },
+  { name: 'Melbourne', country: 'Australie' },
+  { name: 'Auckland', country: 'Nouvelle-Zélande' },
 ];
 
-const normalize = (s: string) =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const countryNameFormatters =
+  typeof Intl !== 'undefined' && typeof Intl.DisplayNames !== 'undefined'
+    ? [new Intl.DisplayNames(['fr'], { type: 'region' }), new Intl.DisplayNames(['en'], { type: 'region' })]
+    : [];
 
-export function searchCities(query: string, maxResults = 8): City[] {
+const codeByCountryName = new Map<string, string>();
+
+for (const code of ISO_COUNTRY_CODES) {
+  for (const formatter of countryNameFormatters) {
+    const name = formatter.of(code);
+    if (name) codeByCountryName.set(normalizeText(name), code);
+  }
+}
+
+for (const [name, code] of Object.entries(MANUAL_COUNTRY_ALIASES)) {
+  codeByCountryName.set(normalizeText(name), code);
+}
+
+const codeToFlag = (code: string) =>
+  code
+    .toUpperCase()
+    .replace(/./g, (char) => String.fromCodePoint(127397 + char.charCodeAt(0)));
+
+export const getFlagForPlace = (place: string) => {
+  const code = codeByCountryName.get(normalizeText(place));
+  return code ? codeToFlag(code) : '🌍';
+};
+
+const slugify = (value: string) =>
+  normalizeText(value)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
+const byId = new Map<string, City>();
+
+const upsertCity = (city: City) => {
+  const existing = byId.get(city.id);
+  if (!existing || (!existing.hasPrice && city.hasPrice)) byId.set(city.id, city);
+};
+
+for (const row of PRICE_ROWS) {
+  const country = row.parentPlace || row.place;
+  upsertCity({
+    id: `${row.placeType}-${slugify(country)}-${slugify(row.place)}`,
+    name: row.place,
+    country: row.placeType === 'country' ? row.place : country,
+    flag: getFlagForPlace(country),
+    cityPrice: row.priceEur,
+    placeType: row.placeType,
+    hasPrice: true,
+    source: 'csv',
+  });
+}
+
+for (const code of ISO_COUNTRY_CODES) {
+  const name = countryNameFormatters[0]?.of(code);
+  if (!name) continue;
+  upsertCity({
+    id: `country-${slugify(name)}`,
+    name,
+    country: name,
+    flag: codeToFlag(code),
+    placeType: 'country',
+    hasPrice: false,
+    source: 'catalog',
+  });
+}
+
+for (const city of EXTRA_MAJOR_CITIES) {
+  upsertCity({
+    id: `city-${slugify(city.country)}-${slugify(city.name)}`,
+    name: city.name,
+    country: city.country,
+    flag: getFlagForPlace(city.country),
+    placeType: 'city',
+    hasPrice: false,
+    source: 'catalog',
+  });
+}
+
+export const CITIES: City[] = Array.from(byId.values()).sort((a, b) => {
+  if (a.hasPrice !== b.hasPrice) return a.hasPrice ? -1 : 1;
+  if (a.placeType !== b.placeType) return a.placeType === 'country' ? -1 : 1;
+  return a.name.localeCompare(b.name, 'fr');
+});
+
+export function searchCities(query: string, maxResults = 10): City[] {
   if (!query || query.trim().length < 1) return [];
-  const q = normalize(query.trim());
+  const q = normalizeText(query);
 
-  const exactStart: City[] = [];
+  const starts: City[] = [];
   const contains: City[] = [];
   const countryMatch: City[] = [];
 
   for (const city of CITIES) {
-    const normName = normalize(city.name);
-    const normCountry = normalize(city.country);
-    if (normName.startsWith(q)) {
-      exactStart.push(city);
-    } else if (normName.includes(q)) {
+    const name = normalizeText(city.name);
+    const country = normalizeText(city.country);
+
+    if (name.startsWith(q)) {
+      starts.push(city);
+    } else if (name.includes(q)) {
       contains.push(city);
-    } else if (normCountry.startsWith(q) || normCountry.includes(q)) {
+    } else if (country.startsWith(q) || country.includes(q)) {
       countryMatch.push(city);
     }
   }
 
-  return [...exactStart, ...contains, ...countryMatch].slice(0, maxResults);
+  return [...starts, ...contains, ...countryMatch].slice(0, maxResults);
 }
 
 export function getCityById(id: string): City | undefined {
-  return CITIES.find((c) => c.id === id);
+  return CITIES.find((city) => city.id === id);
 }
 
 export function getCityByName(name: string): City | undefined {
-  const q = normalize(name.trim());
-  return CITIES.find((c) => normalize(c.name) === q);
+  const q = normalizeText(name);
+  return CITIES.find((city) => normalizeText(city.name) === q);
 }

@@ -76,7 +76,7 @@ export default function SignalerPage() {
           onClick={() => router.push('/')}
           style={{ maxWidth: 280 }}
         >
-          Retour à l'accueil
+          Retour à l&apos;accueil
         </button>
       </div>
     );
@@ -333,7 +333,7 @@ export default function SignalerPage() {
               Confirme ta contribution
             </div>
             <div style={{ fontSize: 14, color: '#888', marginBottom: 20 }}>
-              Vérifie les informations avant d'envoyer.
+              Vérifie les informations avant d&apos;envoyer.
             </div>
 
             <div

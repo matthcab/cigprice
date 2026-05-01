@@ -102,6 +102,7 @@ export default function HomePage() {
           <div style={{ fontSize: 12, fontWeight: 600, color: '#555', letterSpacing: 1, marginBottom: 12 }}>TON TRAJET</div>
 
           <CitySearch
+            key={`from-${fromCity?.id ?? 'empty'}`}
             value={fromCity?.name ?? ''}
             onChange={(c) => setFromCity(c)}
             placeholder="Ville de départ"
@@ -125,6 +126,7 @@ export default function HomePage() {
           </div>
 
           <CitySearch
+            key={`to-${toCity?.id ?? 'empty'}`}
             value={toCity?.name ?? ''}
             onChange={(c) => setToCity(c)}
             placeholder="Où tu vas ?"

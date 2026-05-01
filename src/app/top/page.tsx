@@ -238,7 +238,7 @@ export default function TopPage() {
         </div>
 
         <div style={{ marginTop: 16, fontSize: 12, color: '#333', textAlign: 'center', lineHeight: 1.6 }}>
-          Prix moyen constaté pour Marlboro · <span style={{ color: '#F5C842' }}>Données communautaires</span>
+          Prix moyen constaté pour Marlboro · <span style={{ color: '#F5C842' }}>Données du CSV Combien coûte</span>
         </div>
       </div>
     </div>

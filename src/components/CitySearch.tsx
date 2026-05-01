@@ -21,10 +21,6 @@ export default function CitySearch({ value, onChange, placeholder, label, dot = 
   const results = searchCities(query);
 
   useEffect(() => {
-    setQuery(value);
-  }, [value]);
-
-  useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
@@ -147,12 +143,15 @@ export default function CitySearch({ value, onChange, placeholder, label, dot = 
               }}
             >
               <span style={{ fontSize: 20, flexShrink: 0 }}>{city.flag}</span>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, color: '#F0EDE4' }}>{city.name}</div>
-                <div style={{ fontSize: 12, color: '#555' }}>{city.country}{city.airportCode ? ` · ${city.airportCode}` : ''}</div>
+                <div style={{ fontSize: 12, color: '#555' }}>
+                  {city.placeType === 'country' ? 'Pays' : city.country}
+                  {!city.hasPrice ? ' · données à venir' : ''}
+                </div>
               </div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#4CAF82', flexShrink: 0 }}>
-                {city.cityPrice.toFixed(2).replace('.', ',')}€
+              <div style={{ fontSize: 14, fontWeight: 600, color: city.hasPrice ? '#4CAF82' : '#777', flexShrink: 0 }}>
+                {city.cityPrice !== undefined ? `${city.cityPrice.toFixed(2).replace('.', ',')}€` : '—'}
               </div>
             </div>
           ))}
