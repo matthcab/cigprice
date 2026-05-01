@@ -13,12 +13,9 @@
   --red: #FF5A5A;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
-html,
-body {
+html, body {
   height: 100%;
   background: var(--bg);
   color: var(--text);
@@ -26,16 +23,73 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Hide scrollbars */
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.hide-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+/* ── LAYOUT ───────────────────────────────────── */
+.layout-root {
+  display: flex;
+  min-height: 100dvh;
 }
 
-/* Pill component */
+.desktop-nav {
+  display: none;
+}
+
+.main-scroll {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 80px; /* bottom nav height */
+}
+
+.bottom-nav-bar {
+  display: flex;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #1a1a1a;
+  border-top: 1px solid #2a2a2a;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  z-index: 50;
+}
+
+@media (min-width: 768px) {
+  .layout-root {
+    max-width: 1100px;
+    margin: 0 auto;
+    width: 100%;
+    border-left: 1px solid #1e1e1e;
+    border-right: 1px solid #1e1e1e;
+  }
+
+  .desktop-nav {
+    display: flex;
+    flex-direction: column;
+    width: 220px;
+    min-height: 100dvh;
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    overflow-y: auto;
+    border-right: 1px solid #2A2A2A;
+    padding: 28px 16px 24px;
+    flex-shrink: 0;
+  }
+
+  .main-scroll {
+    padding-bottom: 40px;
+    max-width: 680px;
+    border-right: 1px solid #1e1e1e;
+  }
+
+  .bottom-nav-bar {
+    display: none;
+  }
+}
+
+/* ── UTILITIES ─────────────────────────────────── */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── PILLS ─────────────────────────────────────── */
 .pill {
   display: inline-flex;
   align-items: center;
@@ -46,28 +100,12 @@ body {
   font-weight: 500;
   letter-spacing: 0.2px;
 }
-.pill-yellow {
-  background: rgba(245, 200, 66, 0.13);
-  color: var(--yellow);
-  border: 1px solid rgba(245, 200, 66, 0.27);
-}
-.pill-green {
-  background: rgba(76, 175, 130, 0.13);
-  color: var(--green);
-  border: 1px solid rgba(76, 175, 130, 0.27);
-}
-.pill-red {
-  background: rgba(255, 90, 90, 0.13);
-  color: var(--red);
-  border: 1px solid rgba(255, 90, 90, 0.27);
-}
-.pill-gray {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--muted);
-  border: 1px solid #333;
-}
+.pill-yellow { background: rgba(245,200,66,0.13); color: var(--yellow); border: 1px solid rgba(245,200,66,0.27); }
+.pill-green  { background: rgba(76,175,130,0.13);  color: var(--green);  border: 1px solid rgba(76,175,130,0.27); }
+.pill-red    { background: rgba(255,90,90,0.13);   color: var(--red);    border: 1px solid rgba(255,90,90,0.27); }
+.pill-gray   { background: rgba(255,255,255,0.06); color: var(--muted);  border: 1px solid #333; }
 
-/* CTA button */
+/* ── BUTTONS ──────────────────────────────────── */
 .cta-btn {
   width: 100%;
   background: var(--yellow);
@@ -86,13 +124,9 @@ body {
   justify-content: center;
   gap: 8px;
 }
-.cta-btn:active {
-  opacity: 0.88;
-  transform: scale(0.98);
-}
-.cta-btn:hover {
-  opacity: 0.92;
-}
+.cta-btn:hover  { opacity: 0.92; }
+.cta-btn:active { opacity: 0.88; transform: scale(0.98); }
+.cta-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .ghost-btn {
   width: 100%;
@@ -107,6 +141,4 @@ body {
   cursor: pointer;
   transition: border-color 0.15s;
 }
-.ghost-btn:hover {
-  border-color: #444;
-}
+.ghost-btn:hover { border-color: #444; }

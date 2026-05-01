@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-const NavItems = [
+const NAV_ITEMS = [
   {
     id: 'home',
     label: 'Accueil',
@@ -61,20 +61,8 @@ export default function BottomNav() {
   };
 
   return (
-    <nav
-      style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        background: '#1a1a1a',
-        borderTop: '1px solid #2a2a2a',
-        display: 'flex',
-        paddingBottom: 'env(safe-area-inset-bottom, 20px)',
-        zIndex: 50,
-      }}
-    >
-      {NavItems.map(({ id, label, href, icon }) => {
+    <nav className="bottom-nav-bar">
+      {NAV_ITEMS.map(({ id, label, href, icon }) => {
         const active = isActive(href);
         return (
           <Link
@@ -93,15 +81,7 @@ export default function BottomNav() {
             <div style={{ width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {icon(active)}
             </div>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 500,
-                color: active ? '#F5C842' : '#555',
-                letterSpacing: '0.3px',
-                fontFamily: 'inherit',
-              }}
-            >
+            <span style={{ fontSize: 11, fontWeight: 500, color: active ? '#F5C842' : '#555', letterSpacing: '0.3px', fontFamily: 'inherit' }}>
               {label}
             </span>
           </Link>
