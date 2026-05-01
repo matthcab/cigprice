@@ -19,7 +19,6 @@ export default function SignalerPage() {
   const [locationType, setLocationType] = useState('');
   const [city, setCity] = useState('');
   const [airportCode, setAirportCode] = useState('');
-  const [terminal, setTerminal] = useState('');
   const [shopName, setShopName] = useState('');
   const [brand, setBrand] = useState('Marlboro');
   const [customBrand, setCustomBrand] = useState('');
@@ -160,7 +159,6 @@ export default function SignalerPage() {
                     setLocationType(lt.id);
                     if (lt.id === 'city') {
                       setAirportCode('');
-                      setTerminal('');
                     }
                   }}
                   style={{
@@ -244,39 +242,18 @@ export default function SignalerPage() {
                   />
                 </div>
 
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#888', marginBottom: 8 }}>
-                    Terminal <span style={{ color: '#444', fontWeight: 400 }}>(optionnel)</span>
-                  </div>
-                  <input
-                    value={terminal}
-                    onChange={(e) => setTerminal(e.target.value)}
-                    placeholder="Ex: T1, Terminal 2E, zone duty-free..."
-                    style={{
-                      width: '100%',
-                      padding: '14px 16px',
-                      borderRadius: 14,
-                      background: '#1A1A1A',
-                      border: '1.5px solid #2A2A2A',
-                      color: '#F0EDE4',
-                      fontSize: 16,
-                      fontFamily: 'inherit',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
               </>
             )}
 
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#888', marginBottom: 8 }}>
-                {locationType === 'airport' ? 'Boutique' : 'Nom de la boutique'}{' '}
+                {locationType === 'airport' ? 'Boutique / terminal' : 'Nom de la boutique'}{' '}
                 <span style={{ color: '#444', fontWeight: 400 }}>(optionnel)</span>
               </div>
               <input
                 value={shopName}
                 onChange={(e) => setShopName(e.target.value)}
-                placeholder={locationType === 'airport' ? 'Ex: Duty-free, Relay...' : 'Ex: Tabac Estanco, Relay...'}
+                placeholder={locationType === 'airport' ? 'Ex: Duty-free T2, Relay...' : 'Ex: Tabac Estanco, Relay...'}
                 style={{
                   width: '100%',
                   padding: '14px 16px',
@@ -428,8 +405,7 @@ export default function SignalerPage() {
                 { label: 'Type', value: locationType === 'city' ? '🏙 En ville' : '✈ Aéroport' },
                 ...(locationType === 'city' ? [{ label: 'Ville', value: city }] : []),
                 ...(locationType === 'airport' ? [{ label: 'Aéroport', value: selectedAirport ? `${selectedAirport.code} · ${selectedAirport.name}` : '—' }] : []),
-                ...(locationType === 'airport' ? [{ label: 'Terminal', value: terminal || '—' }] : []),
-                { label: 'Boutique', value: shopName || '—' },
+                { label: locationType === 'airport' ? 'Boutique / terminal' : 'Boutique', value: shopName || '—' },
                 { label: 'Marque', value: finalBrand },
                 { label: 'Prix', value: `${parseFloat(price).toFixed(2).replace('.', ',')}€` },
               ].map(({ label, value }) => (
