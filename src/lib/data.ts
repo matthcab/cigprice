@@ -1,7 +1,30 @@
-import { DATA_BRANDS, PRICE_ROWS, type CigarettePriceRow } from './price-data';
+import { PRICE_ROWS, type CigarettePriceRow } from './price-data';
 import { getFlagForPlace } from './cities';
 
-export const BRANDS = DATA_BRANDS.length > 0 ? DATA_BRANDS : ['Marlboro'];
+export const BRANDS = [
+  'Marlboro',
+  'Camel',
+  'Lucky Strike',
+  'Winston',
+  'Philip Morris',
+  'Chesterfield',
+  'Gauloises',
+  'Gitanes',
+  'L&M',
+  'Pall Mall',
+  'Rothmans',
+  'Dunhill',
+  'Kent',
+  'Vogue',
+  'Davidoff',
+  'Benson & Hedges',
+  'Parliament',
+  'Newport',
+  'American Spirit',
+  'Terea',
+  'Heets',
+  'Autre',
+];
 
 export interface FeedEntry {
   id: string;

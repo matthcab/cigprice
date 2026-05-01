@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BRANDS } from '@/lib/data';
+import { AIRPORTS, getAirportByCode } from '@/lib/airports';
 
 const STEPS = ['Localisation', 'Marque & prix', 'Confirmation'];
 
@@ -16,14 +17,18 @@ export default function SignalerPage() {
   const [step, setStep] = useState(0);
   const [locationType, setLocationType] = useState('');
   const [city, setCity] = useState('');
+  const [airportCode, setAirportCode] = useState('');
   const [shopName, setShopName] = useState('');
   const [brand, setBrand] = useState('Marlboro');
+  const [customBrand, setCustomBrand] = useState('');
   const [price, setPrice] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const selectedAirport = getAirportByCode(airportCode);
+  const finalBrand = brand === 'Autre' ? customBrand.trim() : brand;
 
   const canNext = () => {
-    if (step === 0) return locationType && city;
-    if (step === 1) return brand && price;
+    if (step === 0) return locationType && city && (locationType !== 'airport' || airportCode);
+    if (step === 1) return finalBrand && price;
     return true;
   };
 
@@ -146,7 +151,10 @@ export default function SignalerPage() {
               {LOCATION_TYPES.map((lt) => (
                 <button
                   key={lt.id}
-                  onClick={() => setLocationType(lt.id)}
+                  onClick={() => {
+                    setLocationType(lt.id);
+                    if (lt.id === 'city') setAirportCode('');
+                  }}
                   style={{
                     padding: '16px',
                     borderRadius: 14,
@@ -214,15 +222,47 @@ export default function SignalerPage() {
               />
             </div>
 
+            {locationType === 'airport' && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#888', marginBottom: 8 }}>Aéroport</div>
+                <select
+                  value={airportCode}
+                  onChange={(e) => {
+                    const airport = getAirportByCode(e.target.value);
+                    setAirportCode(e.target.value);
+                    if (airport) setCity(airport.city);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    borderRadius: 14,
+                    background: '#1A1A1A',
+                    border: `1.5px solid ${airportCode ? '#F5C842' : '#2A2A2A'}`,
+                    color: airportCode ? '#F0EDE4' : '#555',
+                    fontSize: 16,
+                    fontFamily: 'inherit',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="">Choisir un aéroport</option>
+                  {AIRPORTS.map((airport) => (
+                    <option key={airport.code} value={airport.code}>
+                      {airport.code} · {airport.name} · {airport.city}, {airport.country}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#888', marginBottom: 8 }}>
-                Nom de la boutique{' '}
+                {locationType === 'airport' ? 'Boutique / terminal' : 'Nom de la boutique'}{' '}
                 <span style={{ color: '#444', fontWeight: 400 }}>(optionnel)</span>
               </div>
               <input
                 value={shopName}
                 onChange={(e) => setShopName(e.target.value)}
-                placeholder="Ex: Tabac Estanco, Relay..."
+                placeholder={locationType === 'airport' ? 'Ex: Duty-free T2, Relay...' : 'Ex: Tabac Estanco, Relay...'}
                 style={{
                   width: '100%',
                   padding: '14px 16px',
@@ -255,7 +295,10 @@ export default function SignalerPage() {
                 {BRANDS.map((b) => (
                   <button
                     key={b}
-                    onClick={() => setBrand(b)}
+                    onClick={() => {
+                      setBrand(b);
+                      if (b !== 'Autre') setCustomBrand('');
+                    }}
                     style={{
                       padding: '8px 16px',
                       borderRadius: 100,
@@ -273,6 +316,28 @@ export default function SignalerPage() {
                 ))}
               </div>
             </div>
+
+            {brand === 'Autre' && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#888', marginBottom: 8 }}>Nom de la marque</div>
+                <input
+                  value={customBrand}
+                  onChange={(e) => setCustomBrand(e.target.value)}
+                  placeholder="Ex: Camel Blue, Winston, marque locale..."
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    borderRadius: 14,
+                    background: '#1A1A1A',
+                    border: `1.5px solid ${customBrand.trim() ? '#F5C842' : '#2A2A2A'}`,
+                    color: '#F0EDE4',
+                    fontSize: 16,
+                    fontFamily: 'inherit',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+            )}
 
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: '#888', marginBottom: 8 }}>
@@ -348,8 +413,11 @@ export default function SignalerPage() {
               {[
                 { label: 'Type', value: locationType === 'city' ? '🏙 En ville' : '✈ Aéroport' },
                 { label: 'Ville', value: city },
+                ...(locationType === 'airport'
+                  ? [{ label: 'Aéroport', value: selectedAirport ? `${selectedAirport.code} · ${selectedAirport.name}` : '—' }]
+                  : []),
                 { label: 'Boutique', value: shopName || '—' },
-                { label: 'Marque', value: brand },
+                { label: 'Marque', value: finalBrand },
                 { label: 'Prix', value: `${parseFloat(price).toFixed(2).replace('.', ',')}€` },
               ].map(({ label, value }) => (
                 <div
