@@ -5,6 +5,14 @@ export interface Airport {
   country: string;
 }
 
+const normalize = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
 export const AIRPORTS: Airport[] = [
   { code: 'ATL', name: 'Hartsfield-Jackson Atlanta', city: 'Atlanta', country: 'États-Unis' },
   { code: 'PEK', name: 'Beijing Capital', city: 'Pékin', country: 'Chine' },
@@ -95,3 +103,29 @@ export const AIRPORTS: Airport[] = [
 ].sort((a, b) => `${a.country} ${a.city} ${a.name}`.localeCompare(`${b.country} ${b.city} ${b.name}`, 'fr'));
 
 export const getAirportByCode = (code: string) => AIRPORTS.find((airport) => airport.code === code);
+
+export function searchAirports(query: string, maxResults = 8): Airport[] {
+  if (!query.trim()) return [];
+  const q = normalize(query);
+
+  const codeStarts: Airport[] = [];
+  const nameStarts: Airport[] = [];
+  const contains: Airport[] = [];
+
+  for (const airport of AIRPORTS) {
+    const code = airport.code.toLowerCase();
+    const name = normalize(airport.name);
+    const city = normalize(airport.city);
+    const country = normalize(airport.country);
+
+    if (code.startsWith(q)) {
+      codeStarts.push(airport);
+    } else if (name.startsWith(q) || city.startsWith(q)) {
+      nameStarts.push(airport);
+    } else if (name.includes(q) || city.includes(q) || country.includes(q)) {
+      contains.push(airport);
+    }
+  }
+
+  return [...codeStarts, ...nameStarts, ...contains].slice(0, maxResults);
+}
