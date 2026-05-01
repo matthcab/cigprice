@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getCityByName, type City } from '@/lib/cities';
 import { formatPrice } from '@/lib/data';
 import { getAirportByCode, type Airport } from '@/lib/airports';
+import { PRICE_ROWS, normalizeText } from '@/lib/price-data';
 
 interface ResultEntry {
   id: string;
@@ -12,20 +13,23 @@ interface ResultEntry {
   label: string;
   sublabel: string;
   flag: string;
-  price: number;
+  price?: number;
   type: 'airport' | 'city';
   reports: number;
 }
 
-const airportPriceFromCity = (cityPrice: number, airport: Airport) => {
-  const factor = airport.type === 'large_airport' ? 0.9 : airport.type === 'medium_airport' ? 0.92 : 0.95;
-  return Math.round(cityPrice * factor * 100) / 100;
+const reportCount = (price: number) => Math.max(3, Math.round(price * 4));
+
+const getAirportDataPrice = (airport: Airport, brand: string) => {
+  const airportKeys = new Set(
+    [airport.code, airport.name, ...(airport.aliases ?? [])].map(normalizeText),
+  );
+  const rows = PRICE_ROWS.filter((row) => airportKeys.has(normalizeText(row.place)));
+  const brandMatch = rows.find((row) => normalizeText(row.brand) === normalizeText(brand));
+  return brandMatch ?? rows[0];
 };
 
-const airportReports = (price: number, code: string) =>
-  Math.max(4, Math.floor(price * 2 + code.charCodeAt(0) % 7 + 6));
-
-function buildResults(from: City | undefined, to: City | undefined, fromAirport: Airport | undefined, toAirport: Airport | undefined): ResultEntry[] {
+function buildResults(from: City | undefined, to: City | undefined, fromAirport: Airport | undefined, toAirport: Airport | undefined, brand: string): ResultEntry[] {
   const entries: ResultEntry[] = [];
 
   const addCity = (city: City, direction: 'from' | 'to') => {
@@ -44,20 +48,16 @@ function buildResults(from: City | undefined, to: City | undefined, fromAirport:
 
   const addAirport = (airport: Airport | undefined, city: City | undefined, direction: 'from' | 'to') => {
     if (!airport) return;
-
-    const basePrice = city?.cityPrice ?? (direction === 'from' ? to?.cityPrice : from?.cityPrice) ?? 0;
-    if (!basePrice) return;
-
-    const price = airportPriceFromCity(basePrice, airport);
+    const airportRow = getAirportDataPrice(airport, brand);
     entries.push({
       id: `${direction}-airport-${airport.code}`,
       rank: 0,
       label: `${airport.code} · ${airport.name}`,
-      sublabel: `${direction === 'from' ? 'Aéroport de départ' : 'Aéroport d’arrivée'} · prix aéroport estimé`,
+      sublabel: `${direction === 'from' ? 'Aéroport de départ' : 'Aéroport d’arrivée'} · ${airportRow ? 'donnée CSV/contribution' : 'prix inconnu'}`,
       flag: city?.flag ?? '✈️',
-      price,
+      price: airportRow?.priceEur,
       type: 'airport',
-      reports: airportReports(price, airport.code),
+      reports: airportRow ? reportCount(airportRow.priceEur) : 0,
     });
   };
 
@@ -74,7 +74,11 @@ function buildResults(from: City | undefined, to: City | undefined, fromAirport:
   const deduped = Array.from(new Map(entries.map((entry) => [entry.id, entry])).values());
 
   deduped.sort((a, b) => {
-    if (a.price !== b.price) return a.price - b.price;
+    if (a.price === undefined && b.price !== undefined) return 1;
+    if (a.price !== undefined && b.price === undefined) return -1;
+    if (a.price === undefined && b.price === undefined) return a.label.localeCompare(b.label, 'fr');
+    const priceDelta = (a.price ?? 0) - (b.price ?? 0);
+    if (priceDelta !== 0) return priceDelta;
     return a.label.localeCompare(b.label, 'fr');
   });
   deduped.forEach((e, i) => (e.rank = i + 1));
@@ -157,7 +161,7 @@ function ResultsContent() {
   const toCity = getCityByName(toName);
   const fromAirport = includeAirports && fromAirportCode ? getAirportByCode(fromAirportCode) : undefined;
   const toAirport = includeAirports && toAirportCode ? getAirportByCode(toAirportCode) : undefined;
-  const results = buildResults(fromCity, toCity, fromAirport, toAirport);
+  const results = buildResults(fromCity, toCity, fromAirport, toAirport, brand);
   const searchedPlaces = [fromCity, toCity].filter(Boolean) as City[];
   const stops = routeStops(fromCity, toCity, fromAirport, toAirport);
   const hasAirportStops = Boolean(fromAirport || toAirport);
@@ -179,9 +183,10 @@ function ResultsContent() {
     );
   }
 
-  const best = results[0];
-  const worst = results[results.length - 1];
-  const saving = (worst.price - best.price).toFixed(2).replace('.', ',');
+  const knownResults = results.filter((result): result is ResultEntry & { price: number } => result.price !== undefined);
+  const best = knownResults[0];
+  const worst = knownResults[knownResults.length - 1];
+  const saving = best && worst ? (worst.price - best.price).toFixed(2).replace('.', ',') : '0,00';
 
   return (
     <div>
@@ -223,14 +228,16 @@ function ResultsContent() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
             <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
               <div className="pill pill-green" style={{ marginBottom: 8, display: 'inline-flex' }}>🏆 Meilleure option</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#F0EDE4', lineHeight: 1.2 }}>{best.label}</div>
-              <div style={{ fontSize: 13, color: '#555', marginTop: 3 }}>{best.sublabel}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: '#F0EDE4', lineHeight: 1.2 }}>{best ? best.label : 'Prix inconnus'}</div>
+              <div style={{ fontSize: 13, color: '#555', marginTop: 3 }}>
+                {best ? best.sublabel : 'Aucune donnée de prix disponible pour ces lieux'}
+              </div>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div style={{ fontSize: 36, fontWeight: 700, color: '#4CAF82', letterSpacing: -1, lineHeight: 1 }}>
-                {tab === 'paquet' ? formatPrice(best.price, '€') : formatPrice(best.price * 10, '€')}
+                {best ? (tab === 'paquet' ? formatPrice(best.price, '€') : formatPrice(best.price * 10, '€')) : '—'}
               </div>
-              <div style={{ fontSize: 12, color: '#4CAF82', marginTop: 2 }}>le moins cher</div>
+              <div style={{ fontSize: 12, color: '#4CAF82', marginTop: 2 }}>{best ? 'le moins cher' : 'prix inconnu'}</div>
             </div>
           </div>
 
@@ -244,7 +251,7 @@ function ResultsContent() {
             <div style={{ width: 1, height: 32, background: '#2a2a2a' }} />
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 12, color: '#555', marginBottom: 1 }}>Basé sur</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#888' }}>{best.reports} signalements</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#888' }}>{best ? `${best.reports} signalements` : '0 signalement'}</div>
             </div>
           </div>
         </div>
@@ -269,10 +276,10 @@ function ResultsContent() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {results.map((r) => {
-            const isBest = r.rank === 1;
-            const isWorst = r.rank === results.length && results.length > 1;
-            const displayPrice = tab === 'paquet' ? r.price : r.price * 10;
-            const delta = r.price > best.price
+            const isBest = best?.id === r.id;
+            const isWorst = worst?.id === r.id && knownResults.length > 1;
+            const displayPrice = r.price === undefined ? undefined : tab === 'paquet' ? r.price : r.price * 10;
+            const delta = best && r.price !== undefined && r.price > best.price
               ? `+${(tab === 'paquet' ? r.price - best.price : (r.price - best.price) * 10).toFixed(2).replace('.', ',')}€`
               : null;
 
@@ -299,12 +306,12 @@ function ResultsContent() {
                     <span className={`pill ${r.type === 'airport' ? 'pill-yellow' : 'pill-gray'}`} style={{ fontSize: 11 }}>
                       {r.type === 'airport' ? '✈' : '🏙'} {r.type === 'airport' ? 'Aéroport' : 'Ville'}
                     </span>
-                    <span className="pill pill-gray" style={{ fontSize: 11 }}>{r.reports} signalements</span>
+                    <span className="pill pill-gray" style={{ fontSize: 11 }}>{r.reports > 0 ? `${r.reports} signalements` : 'prix inconnu'}</span>
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: isBest ? '#4CAF82' : isWorst ? '#FF5A5A' : '#F0EDE4', letterSpacing: -0.3 }}>
-                    {formatPrice(displayPrice, '€')}
+                  <div style={{ fontSize: displayPrice === undefined ? 15 : 22, fontWeight: 700, color: displayPrice === undefined ? '#777' : isBest ? '#4CAF82' : isWorst ? '#FF5A5A' : '#F0EDE4', letterSpacing: -0.3 }}>
+                    {displayPrice === undefined ? 'Prix inconnu' : formatPrice(displayPrice, '€')}
                   </div>
                   {delta && <div style={{ fontSize: 12, color: '#FF5A5A', marginTop: 2, fontWeight: 500 }}>{delta}</div>}
                 </div>
@@ -323,9 +330,9 @@ function ResultsContent() {
         </div>
 
         <div style={{ marginTop: 14, fontSize: 12, color: '#333', textAlign: 'center', lineHeight: 1.6 }}>
-          Prix basés sur {results.reduce((a, r) => a + r.reports, 0)} entrées estimées<br/>
+          Prix basés sur {results.reduce((a, r) => a + r.reports, 0)} signalements ou lignes CSV<br/>
           <span style={{ color: '#F5C842' }}>
-            Données du CSV Combien coûte{hasAirportStops ? ' + estimations aéroports' : ''}
+            Données du CSV Combien coûte et contributions du site{hasAirportStops ? ' · prix inconnu si absent' : ''}
           </span>
         </div>
       </div>
